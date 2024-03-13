@@ -13,6 +13,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -20,6 +21,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor //Cria um construtor com todos os atributos
 @NoArgsConstructor //Cria um construtor vazio
 @Entity(name="students") //Converte a classe tem tabela
+@Builder
 public class StudentEntity {
 
 	@Id

@@ -6,7 +6,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ygtech.certification_manager.modules.students.dto.StudentCertificationAnswerDTO;
 import com.ygtech.certification_manager.modules.students.dto.VerifyHasCertificationDTO;
+import com.ygtech.certification_manager.modules.students.useCases.StudentCertificationAnswersUseCase;
 import com.ygtech.certification_manager.modules.students.useCases.VerifyIfHasCertificationUseCase;
 
 @RestController
@@ -15,6 +17,9 @@ public class StudentController {
 	
 	@Autowired
 	private VerifyIfHasCertificationUseCase verifyIfHasCertificationUseCase;
+	
+	@Autowired
+	private  StudentCertificationAnswersUseCase studentCertificationAnswersUseCase;
 
 	@PostMapping("/verifyIfHasCertification")
 	public String verifyIfHasCertification(@RequestBody VerifyHasCertificationDTO verifyHasCertificationDTO) {
@@ -25,5 +30,10 @@ public class StudentController {
 			return "The user has already taken the test"; 
 		
 		return "The user can take the test.";
+	}
+	
+	@PostMapping("/certification/answer")
+	public StudentCertificationAnswerDTO certificationAnswer(@RequestBody StudentCertificationAnswerDTO studentCertificationAnswerDTO) {
+		return this.studentCertificationAnswersUseCase.execute(studentCertificationAnswerDTO);
 	}
 }
