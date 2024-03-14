@@ -1,7 +1,9 @@
 package com.ygtech.certification_manager.modules.students.useCases;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -9,8 +11,11 @@ import org.springframework.stereotype.Service;
 import com.ygtech.certification_manager.modules.questions.entities.QuestionEntity;
 import com.ygtech.certification_manager.modules.questions.repositories.QuestionRepository;
 import com.ygtech.certification_manager.modules.students.dto.StudentCertificationAnswerDTO;
+import com.ygtech.certification_manager.modules.students.dto.VerifyHasCertificationDTO;
+import com.ygtech.certification_manager.modules.students.entities.AnswerCertificationsEntity;
 import com.ygtech.certification_manager.modules.students.entities.CertificationStudentEntity;
 import com.ygtech.certification_manager.modules.students.entities.StudentEntity;
+import com.ygtech.certification_manager.modules.students.repositories.CertificationStudentRepository;
 import com.ygtech.certification_manager.modules.students.repositories.StudentRepository;
 
 @Service
@@ -21,11 +26,26 @@ public class StudentCertificationAnswersUseCase {
 	
 	@Autowired
 	private QuestionRepository questionRepository;
+	
+	@Autowired
+	private CertificationStudentRepository certificationStudentRepository;
+	
+	@Autowired
+	private VerifyIfHasCertificationUseCase verifyIfHasCertificationUseCase;
 
-	public StudentCertificationAnswerDTO execute(StudentCertificationAnswerDTO dto) {
+	public CertificationStudentEntity execute(StudentCertificationAnswerDTO dto) throws Exception {
+		
+		var hasCertification = this.verifyIfHasCertificationUseCase.execute(new VerifyHasCertificationDTO(dto.getEmail(),dto.getTechnology()));
 
+		if(hasCertification) {
+			throw new Exception("You have already obtained your certification!");
+		}
+		
 		// Buscar as alternativas das perguntas: Correta ou incorreta
 		List<QuestionEntity> questionsEntity =  questionRepository.findByTechnology(dto.getTechnology());
+		List<AnswerCertificationsEntity> answersCertifications = new ArrayList<>();
+		
+		AtomicInteger correctAnswers = new AtomicInteger(0);
 		
 		dto.getQuestionsAnswers().stream().forEach(questionAnswer -> {
 			var question = questionsEntity.stream()
@@ -38,9 +58,18 @@ public class StudentCertificationAnswersUseCase {
 			
 			if(findCorrectAlternative.getId().equals(questionAnswer.getAlternativeId())) {
 				questionAnswer.setCorrect(true);
+				correctAnswers.incrementAndGet();
 			} else {
 				questionAnswer.setCorrect(false);
 			}
+			
+			var answersCertificationsEntity = AnswerCertificationsEntity.builder()
+				.answerID(questionAnswer.getAlternativeId())
+				.questionID(questionAnswer.getQuestionId())
+				.isCorrect(questionAnswer.isCorrect())
+				.build();
+			
+			answersCertifications.add(answersCertificationsEntity);
 		});
 		
 		// Verificar se existe student pelo mail
@@ -51,16 +80,29 @@ public class StudentCertificationAnswersUseCase {
 			var studentCreated = StudentEntity.builder().email(dto.getEmail()).build();
 			studentCreated = studentRepository.save(studentCreated);
 			studentID = studentCreated.getId();
-		}else {
+		} else {
 			studentID = student.get().getId();
 		}
 		
+
 		CertificationStudentEntity certificationStudentEntity = CertificationStudentEntity.builder()
 				.technology(dto.getTechnology())
 				.studentID(studentID)
+				.grade(correctAnswers.get())
 				.build();
 		
-		return dto;
+		var certificationStudentCreated = certificationStudentRepository.save(certificationStudentEntity);
+		
+		answersCertifications.stream().forEach(answerCertification -> {
+			answerCertification.setCertificationID(certificationStudentEntity.getId());
+			answerCertification.setCertificationStudentEntity(certificationStudentEntity);
+		});
+		
+		certificationStudentEntity.setAnswerCertificationsEntity(answersCertifications);
+		
+		certificationStudentRepository.save(certificationStudentEntity);
+		
+		return certificationStudentCreated;
 		// Salvar as informações da certificação
 		
 	}
